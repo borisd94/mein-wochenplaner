@@ -1,0 +1,74 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f7f6fb"><title>Mein Wochenplaner</title><style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#242337;background:#f7f6fb}*{box-sizing:border-box}body{margin:0}main{max-width:1500px;margin:auto;padding:26px 22px 55px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{font-size:clamp(25px,3vw,36px);margin:0;letter-spacing:-1px}.subtitle{color:#79768c;font-size:13px;margin:6px 0 0}.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button,input{font:inherit}button{cursor:pointer;border:1px solid #e1deec;background:white;border-radius:12px;padding:10px 14px;color:#39334d}button:hover{background:#f0edf8}button:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #b7a6f4;outline-offset:2px}.range{font-weight:650;min-width:200px;text-align:center}.status{font-size:12px;color:#777186;margin-top:15px;min-height:18px}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.28fr);gap:14px;margin-top:16px}.days{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.day,.notes{background:#fff;border:1px solid #e4e0ee;border-radius:17px;overflow:hidden;display:flex;flex-direction:column;min-height:270px;box-shadow:0 3px 15px #34265006}.dayhead{background:#efecf9;padding:13px 15px;display:flex;justify-content:space-between;gap:6px;align-items:center}.dayhead strong{font-size:16px}.date{font-size:12px;color:#6c6680}.notes{grid-column:2;grid-row:1}.notes .dayhead{background:#fbf0e4}.day textarea,.notes textarea{flex:1;width:100%;min-height:200px;resize:vertical;border:0;background:transparent;padding:15px;line-height:1.55;font-size:15px;color:#28243a;outline:none}.day textarea:focus,.notes textarea:focus{background:#fdfcff}.notes textarea{min-height:510px}.account{margin-top:30px;border-top:1px solid #e5e1ef;padding-top:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.account input{border:1px solid #ddd8e9;border-radius:11px;padding:10px;min-width:200px}.small{font-size:13px;color:#777186}.hidden{display:none!important}@media(max-width:1050px){.layout{grid-template-columns:1fr}.days{grid-template-columns:repeat(2,minmax(0,1fr))}.notes{grid-column:auto;grid-row:auto}.notes textarea{min-height:240px}}@media(max-width:580px){main{padding:20px 12px 40px}.controls{width:100%;justify-content:space-between}.range{min-width:0;font-size:14px}.days{grid-template-columns:1fr;gap:10px}.day{min-height:180px}.day textarea{min-height:145px}.notes{min-height:230px}.notes textarea{min-height:180px}}@media(min-width:1051px){.day:nth-child(n+5){min-height:270px}}
+/* Echte umklappende Papierseite über der neuen Woche */
+.layout{position:relative;isolation:isolate}
+.page-turn-sheet{position:absolute;inset:0;z-index:20;pointer-events:none;
+ transform-style:preserve-3d;backface-visibility:hidden;
+ background:#f7f6fb;border-radius:16px;
+ box-shadow:0 12px 30px #29233b20;overflow:hidden}
+.page-turn-sheet::after{content:"";position:absolute;inset:0;pointer-events:none;
+ background:linear-gradient(90deg,transparent 15%,#33284913 70%,#16102045);
+ animation:paper-shadow .72s ease-in-out both}
+.page-turn-sheet.next{transform-origin:left center;animation:flip-next .72s cubic-bezier(.4,.02,.25,1) forwards}
+.page-turn-sheet.prev{transform-origin:right center;animation:flip-prev .72s cubic-bezier(.4,.02,.25,1) forwards}
+.page-turn-sheet .layout{margin-top:0}
+@keyframes flip-next{0%{transform:perspective(1600px) rotateY(0deg)}100%{transform:perspective(1600px) rotateY(-92deg)}}
+@keyframes flip-prev{0%{transform:perspective(1600px) rotateY(0deg)}100%{transform:perspective(1600px) rotateY(92deg)}}
+@keyframes paper-shadow{0%{opacity:.12}50%{opacity:1}100%{opacity:.15}}
+@media(prefers-reduced-motion:reduce){.page-turn-sheet,.page-turn-sheet::after{animation:none!important}}
+</style></head><body><main><header><div><h1>Wochenplaner</h1><p class="subtitle">Einfach schreiben. Automatisch speichern.</p></div><div class="controls"><button id="prev" aria-label="Vorherige Woche">❮</button><span class="range" id="range"></span><button id="next" aria-label="Nächste Woche">❯</button><button id="today">Heute</button></div></header><div class="status" id="status" aria-live="polite">Lokal gespeichert auf diesem Gerät</div><div class="layout"><section class="days" id="days" aria-label="Wochentage"></section><section class="notes"><div class="dayhead"><strong>Wochennotizen</strong><span class="date">✎</span></div><textarea id="notes" placeholder="Alles, was diese Woche wichtig ist …" aria-label="Wochennotizen"></textarea></section></div><section class="account"><span class="small" id="accountInfo">Cloud-Synchronisierung noch nicht eingerichtet.</span><input id="email" type="email" placeholder="E-Mail für Anmeldung" class="hidden" aria-label="E-Mail-Adresse"><button id="login" class="hidden">Anmeldelink senden</button><button id="logout" class="hidden">Abmelden</button></section></main><script type="module">
+// Für Synchronisierung diese zwei Werte aus deinem Supabase-Projekt einsetzen.
+const SUPABASE_URL = '';
+const SUPABASE_ANON_KEY = '';
+const CLOUD_ENABLED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+const $=id=>document.getElementById(id), days=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+const fmt=new Intl.DateTimeFormat('de-DE',{day:'numeric',month:'short'});
+const dateISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const mondayOf=d=>{let x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);x.setDate(x.getDate()-(x.getDay()+6)%7);return x};
+const plusDays=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x};
+let monday=mondayOf(new Date()), current={}, saveTimer, client=null, user=null, revision=0, animating=false, pendingSave=null;
+const storageKey=()=>`wochenplaner:${dateISO(monday)}`;
+const empty=()=>({days:Array(7).fill(''),notes:''});
+const readLocal=()=>{try{let v=JSON.parse(localStorage.getItem(storageKey()));return {...empty(),...v,days:Array.from({length:7},(_,i)=>v?.days?.[i]||'')}}catch{return empty()}};
+function setStatus(s){$('status').textContent=s}
+function draw(){const last=plusDays(monday,6);$('range').textContent=`${fmt.format(monday)} – ${fmt.format(last)} ${last.getFullYear()}`;$('days').replaceChildren();days.forEach((name,i)=>{let card=document.createElement('article');card.className='day';let head=document.createElement('div');head.className='dayhead';let title=document.createElement('strong');title.textContent=name;let date=document.createElement('span');date.className='date';date.textContent=fmt.format(plusDays(monday,i));head.append(title,date);let area=document.createElement('textarea');area.placeholder='Hier schreiben …';area.setAttribute('aria-label',name);area.value=current.days[i];area.addEventListener('input',()=>{current.days[i]=area.value;changed()});card.append(head,area);$('days').append(card)});$('notes').value=current.notes}
+function changed(){revision++;localStorage.setItem(storageKey(),JSON.stringify(current));setStatus(client&&user?'Lokal gespeichert · Cloud-Speicherung läuft …':'Auf diesem Gerät gespeichert');clearTimeout(saveTimer);if(client&&user){let key=dateISO(monday),snapshot=JSON.parse(JSON.stringify(current));pendingSave={key,data:snapshot};saveTimer=setTimeout(()=>{pendingSave=null;pushCloud(key,snapshot)},700)}}
+async function pushCloud(key,data){if(!client||!user)return;const {error}=await client.from('weekly_plans').upsert({user_id:user.id,week_start:key,content:data},{onConflict:'user_id,week_start'});setStatus(error?'Cloud-Speicherung fehlgeschlagen: '+error.message:'Auf allen Geräten synchronisiert ✓')}
+async function load(){clearTimeout(saveTimer);const myRev=++revision;const key=dateISO(monday);current=readLocal();draw();setStatus(client&&user?'Lade Cloud-Daten …':'Auf diesem Gerät gespeichert');if(client&&user){let {data,error}=await client.from('weekly_plans').select('content').eq('user_id',user.id).eq('week_start',key).maybeSingle();if(myRev!==revision||key!==dateISO(monday))return;if(error){setStatus('Cloud-Laden fehlgeschlagen: '+error.message);return}if(data?.content){current={...empty(),...data.content};localStorage.setItem(storageKey(),JSON.stringify(current));draw()}else if(current.days.some(Boolean)||current.notes){await pushCloud(key,current)}setStatus('Auf allen Geräten synchronisiert ✓')}}
+$('notes').addEventListener('input',e=>{current.notes=e.target.value;changed()});function turnPage(direction){
+  if(animating)return;
+  animating=true;
+  clearTimeout(saveTimer);
+  if(pendingSave){const pending=pendingSave;pendingSave=null;void pushCloud(pending.key,pending.data)}
+  const page=document.querySelector('.layout');
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduce){
+    const sheet=document.createElement('div');
+    sheet.className='page-turn-sheet '+(direction>0?'next':'prev');
+    const old=page.cloneNode(true);
+    old.classList.remove('turn-next','turn-prev');
+    // Aktuelle Texte übernehmen; cloneNode kopiert textarea-Inhalte nicht zuverlässig.
+    const from=page.querySelectorAll('textarea'),to=old.querySelectorAll('textarea');
+    from.forEach((area,i)=>{to[i].value=area.value;to[i].textContent=area.value});
+    old.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+    sheet.append(old);
+    page.append(sheet);
+    sheet.addEventListener('animationend',()=>{sheet.remove();animating=false},{once:true});
+    setTimeout(()=>{if(sheet.isConnected){sheet.remove();animating=false}},900);
+  }
+  monday=plusDays(monday,direction*7);
+  void load();
+  if(reduce)animating=false;
+  if(navigator.vibrate)navigator.vibrate(12);
+}
+$('prev').onclick=()=>turnPage(-1);
+$('next').onclick=()=>turnPage(1);
+$('today').onclick=()=>{if(animating)return;const target=mondayOf(new Date());const diff=Math.round((target-monday)/604800000);if(diff===-1||diff===1)turnPage(diff);else{monday=target;load()}};
+// Auf dem iPhone kann man außerdem horizontal über den Plan wischen.
+let touchStart=null;
+const layout=document.querySelector('.layout');
+layout.addEventListener('touchstart',e=>{if(e.touches.length!==1||e.target.closest('textarea,input,button')){touchStart=null;return}touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY}},{passive:true});
+layout.addEventListener('touchend',e=>{if(!touchStart)return;const dx=e.changedTouches[0].clientX-touchStart.x,dy=e.changedTouches[0].clientY-touchStart.y;touchStart=null;if(Math.abs(dx)>75&&Math.abs(dx)>Math.abs(dy)*1.5)turnPage(dx<0?1:-1)},{passive:true});
+if(CLOUD_ENABLED){try{const {createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');client=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);$('email').classList.remove('hidden');$('login').classList.remove('hidden');$('accountInfo').textContent='Für Synchronisierung per E-Mail anmelden.';const {data:{session}}=await client.auth.getSession();user=session?.user||null;function showAuth(){let signed=!!user;$('email').classList.toggle('hidden',signed);$('login').classList.toggle('hidden',signed);$('logout').classList.toggle('hidden',!signed);$('accountInfo').textContent=signed?'Angemeldet: '+user.email:'Für Synchronisierung per E-Mail anmelden.'}showAuth();client.auth.onAuthStateChange((_event,session)=>{let old=user?.id;user=session?.user||null;showAuth();if(user?.id!==old)load()});$('login').onclick=async()=>{let email=$('email').value.trim();if(!email){setStatus('Bitte E-Mail eingeben.');return}let {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setStatus(error?error.message:'Anmeldelink per E-Mail gesendet. Bitte öffnen.')};$('logout').onclick=async()=>{await client.auth.signOut();user=null;showAuth();load()}}catch(e){setStatus('Cloud konnte nicht geladen werden. Lokale Nutzung möglich.')}}
+load();
+</script></body></html>
